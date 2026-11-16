@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pothole Portal</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, "Segoe UI", sans-serif; background: #f0f4f8; color: #1f2328; }
+
+    header {
+      background: #1e3a5f;
+      color: white;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { font-size: 20px; font-weight: 600; }
+    header span { font-size: 24px; }
+
+    nav {
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      gap: 0;
+    }
+    nav button {
+      padding: 12px 24px;
+      border: none;
+      background: none;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      color: #57606a;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+    }
+    nav button.active {
+      color: #1e3a5f;
+      border-bottom-color: #1e3a5f;
+    }
+    nav button:hover { background: #f7f8fa; }
+
+    .page { display: none; padding: 24px; max-width: 960px; margin: 0 auto; }
+    .page.active { display: block; }
+
+    h2 { font-size: 18px; margin-bottom: 16px; color: #1e3a5f; }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; color: #57606a; }
+    input, select, textarea {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-bottom: 14px;
+      background: #fff;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #3b82d4;
+      box-shadow: 0 0 0 3px rgba(59,130,212,0.15);
+    }
+    textarea { resize: vertical; height: 72px; }
+
+    .btn {
+      padding: 9px 18px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-primary { background: #1e3a5f; color: white; }
+    .btn-primary:hover { background: #163051; }
+    .btn-secondary { background: #e5e7eb; color: #1f2328; }
+    .btn-secondary:hover { background: #d0d7de; }
+    .btn-danger { background: #ef4444; color: white; font-size: 12px; padding: 5px 10px; }
+    .btn-danger:hover { background: #dc2626; }
+
+    .gps-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      margin-bottom: 14px;
+    }
+    .gps-row input { margin-bottom: 0; flex: 1; }
+
+    #map-report { height: 280px; border-radius: 6px; border: 1px solid #d0d7de; margin-bottom: 14px; }
+    #map-travel { height: 420px; border-radius: 6px; border: 1px solid #d0d7de; }
+
+    .status {
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 14px;
+      display: none;
+    }
+    .status.success { background: #dcfce7; color: #166534; display: block; }
+    .status.error   { background: #fee2e2; color: #991b1b; display: block; }
+    .status.info    { background: #dbeafe; color: #1e40af; display: block; }
+
+    .pothole-list { margin-top: 10px; }
+    .pothole-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 13px;
+    }
+    .pothole-item:last-child { border-bottom: none; }
+    .pothole-item .meta { color: #57606a; font-size: 12px; margin-top: 2px; }
+    .severity-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-left: 6px;
+    }
+    .severity-low    { background: #dcfce7; color: #166534; }
+    .severity-medium { background: #fef9c3; color: #854d0e; }
+    .severity-high   { background: #fee2e2; color: #991b1b; }
+
+    .route-row { display: flex; gap: 10px; margin-bottom: 14px; }
+    .route-row input { margin-bottom: 0; flex: 1; }
+
+    .warning-box {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin-top: 14px;
+      font-size: 13px;
+      color: #9a3412;
+    }
+    .warning-box h4 { margin-bottom: 6px; font-size: 14px; }
+    .warning-box ul { padding-left: 18px; }
+    .warning-box li { margin-bottom: 4px; }
+
+    .empty-state { color: #57606a; font-size: 13px; text-align: center; padding: 24px 0; }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-card .num { font-size: 28px; font-weight: 700; color: #1e3a5f; }
+    .stat-card .lbl { font-size: 12px; color: #57606a; margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span>🚧</span>
+  <h1>Pothole Portal</h1>
+</header>
+
+<nav>
+  <button class="active" onclick="showPage('report')">📍 Report Pothole</button>
+  <button onclick="showPage('travel')">🗺️ Plan Travel Route</button>
+  <button onclick="showPage('database')">🗄️ Pothole Database</button>
+</nav>
+
+<!-- ==================== REPORT PAGE ==================== -->
+<div id="page-report" class="page active">
+  <h2>Report a Pothole</h2>
+  <div class="card">
+    <label>Your GPS Location</label>
+    <div style="display:flex;gap:10px;margin-bottom:14px;">
+      <div style="flex:1">
+        <label>Latitude</label>
+        <input type="text" id="rep-lat" placeholder="e.g. 28.6139" inputmode="decimal" style="margin-bottom:0" onblur="onManualCoords()"/>
+      </div>
+      <div style="flex:1">
+        <label>Longitude</label>
+        <input type="text" id="rep-lng" placeholder="e.g. 77.2090" inputmode="decimal" style="margin-bottom:0" onblur="onManualCoords()"/>
+      </div>
+    </div>
+    <button class="btn btn-secondary" style="margin-bottom:14px;" onclick="captureGPS()">📡 Use My Location</button>
+    <div id="map-report"></div>
+    <label>Description (optional)</label>
+    <textarea id="rep-desc" placeholder="e.g. Large pothole near traffic light, water-filled..."></textarea>
+    <label>Severity</label>
+    <select id="rep-severity">
+      <option value="low">Low — Minor bump</option>
+      <option value="medium" selected>Medium — Noticeable pothole</option>
+      <option value="high">High — Dangerous / large pothole</option>
+    </select>
+    <div id="rep-status" class="status"></div>
+    <button class="btn btn-primary" onclick="submitReport()">✅ Submit Report</button>
+  </div>
+</div>
+
+<!-- ==================== TRAVEL PAGE ==================== -->
+<div id="page-travel" class="page">
+  <h2>Plan Your Travel Route</h2>
+  <div class="card">
+    <p style="font-size:13px;color:#57606a;margin-bottom:14px;">
+      Enter your start and destination coordinates. The map will show your straight-line path with nearby pothole warnings.
+    </p>
+    <div class="route-row">
+      <div style="flex:1">
+        <label>Start — Latitude</label>
+        <input type="number" id="t-slat" placeholder="e.g. 28.6139" step="any"/>
+      </div>
+      <div style="flex:1">
+        <label>Start — Longitude</label>
+        <input type="number" id="t-slng" placeholder="e.g. 77.2090" step="any"/>
+      </div>
+    </div>
+    <div class="route-row">
+      <div style="flex:1">
+        <label>Destination — Latitude</label>
+        <input type="number" id="t-dlat" placeholder="e.g. 28.7041" step="any"/>
+      </div>
+      <div style="flex:1">
+        <label>Destination — Longitude</label>
+        <input type="number" id="t-dlng" placeholder="e.g. 77.1025" step="any"/>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="planRoute()">🗺️ Show Route &amp; Potholes</button>
+    <button class="btn btn-secondary" style="margin-left:8px;" onclick="useCurrentLocationAsStart()">📡 Use My Location as Start</button>
+    <div id="travel-status" class="status"></div>
+    <div id="travel-warnings"></div>
+  </div>
+  <div id="map-travel"></div>
+</div>
+
+<!-- ==================== DATABASE PAGE ==================== -->
+<div id="page-database" class="page">
+  <h2>Pothole Database</h2>
+  <div class="stats-row">
+    <div class="stat-card"><div class="num" id="stat-total">0</div><div class="lbl">Total Reported</div></div>
+    <div class="stat-card"><div class="num" id="stat-high" style="color:#ef4444">0</div><div class="lbl">High Severity</div></div>
+    <div class="stat-card"><div class="num" id="stat-recent">0</div><div class="lbl">Last 7 Days</div></div>
+  </div>
+  <div class="card">
+    <div id="db-list" class="pothole-list">
+      <div class="empty-state">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  // ── State ──────────────────────────────────────────────────
+  let reportMap, reportMarker;
+  let travelMap, travelLayers = [];
+  let allPotholes = [];
+
+  // ── Page switching ─────────────────────────────────────────
+  function showPage(name) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    event.target.classList.add('active');
+
+    if (name === 'report' && !reportMap) initReportMap();
+    if (name === 'travel' && !travelMap) initTravelMap();
+    if (name === 'database') loadDatabase();
+  }
+
+  // ── Report map ─────────────────────────────────────────────
+  function initReportMap() {
+    reportMap = L.map('map-report').setView([20.5937, 78.9629], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(reportMap);
+
+    reportMap.on('click', function(e) {
+      placeReportMarker(e.latlng.lat, e.latlng.lng, true);
+    });
+  }
+
+  function placeReportMarker(lat, lng, updateInputs) {
+    if (reportMarker) reportMap.removeLayer(reportMarker);
+    reportMarker = L.marker([lat, lng]).addTo(reportMap)
+      .bindPopup('📍 Pothole Location').openPopup();
+    if (updateInputs) {
+      document.getElementById('rep-lat').value = lat.toFixed(6);
+      document.getElementById('rep-lng').value = lng.toFixed(6);
+    }
+  }
+
+  function onManualCoords() {
+    const lat = parseFloat(document.getElementById('rep-lat').value);
+    const lng = parseFloat(document.getElementById('rep-lng').value);
+    if (isNaN(lat) || isNaN(lng)) return;
+    if (!reportMap) initReportMap();
+    reportMap.setView([lat, lng], 17);
+    placeReportMarker(lat, lng, false);
+  }
+
+  function captureGPS() {
+    if (!navigator.geolocation) {
+      showStatus('rep-status', 'Geolocation is not supported by your browser.', 'error');
+      return;
+    }
+    showStatus('rep-status', '📡 Acquiring GPS location...', 'info');
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const { latitude, longitude } = pos.coords;
+        if (!reportMap) initReportMap();
+        reportMap.setView([latitude, longitude], 17);
+        placeReportMarker(latitude, longitude, true);
+        showStatus('rep-status', `✅ Location captured: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`, 'success');
+      },
+      err => {
+        showStatus('rep-status', `❌ GPS error: ${err.message}`, 'error');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  async function submitReport() {
+    const lat = document.getElementById('rep-lat').value;
+    const lng = document.getElementById('rep-lng').value;
+    const desc = document.getElementById('rep-desc').value;
+    const severity = document.getElementById('rep-severity').value;
+
+    if (!lat || !lng) {
+      showStatus('rep-status', '❌ Please capture your GPS location first.', 'error');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/potholes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat, lng, description: desc, severity })
+      });
+      if (!res.ok) throw new Error('Server error');
+      showStatus('rep-status', '✅ Pothole reported successfully! Thank you.', 'success');
+      document.getElementById('rep-desc').value = '';
+      document.getElementById('rep-lat').value = '';
+      document.getElementById('rep-lng').value = '';
+      if (reportMarker) { reportMap.removeLayer(reportMarker); reportMarker = null; }
+    } catch(e) {
+      showStatus('rep-status', '❌ Failed to submit. Is the server running?', 'error');
+    }
+  }
+
+  // ── Travel map ─────────────────────────────────────────────
+  function initTravelMap() {
+    travelMap = L.map('map-travel').setView([20.5937, 78.9629], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(travelMap);
+  }
+
+  function useCurrentLocationAsStart() {
+    if (!navigator.geolocation) return;
+    showStatus('travel-status', '📡 Getting your location...', 'info');
+    navigator.geolocation.getCurrentPosition(pos => {
+      document.getElementById('t-slat').value = pos.coords.latitude.toFixed(6);
+      document.getElementById('t-slng').value = pos.coords.longitude.toFixed(6);
+      showStatus('travel-status', '✅ Start location set to your GPS position.', 'success');
+    }, err => {
+      showStatus('travel-status', `❌ GPS error: ${err.message}`, 'error');
+    }, { enableHighAccuracy: true });
+  }
+
+  async function planRoute() {
+    const slat = parseFloat(document.getElementById('t-slat').value);
+    const slng = parseFloat(document.getElementById('t-slng').value);
+    const dlat = parseFloat(document.getElementById('t-dlat').value);
+    const dlng = parseFloat(document.getElementById('t-dlng').value);
+
+    if (isNaN(slat) || isNaN(slng) || isNaN(dlat) || isNaN(dlng)) {
+      showStatus('travel-status', '❌ Please fill in all four coordinate fields.', 'error');
+      return;
+    }
+
+    // Clear old layers
+    travelLayers.forEach(l => travelMap.removeLayer(l));
+    travelLayers = [];
+
+    if (!travelMap) initTravelMap();
+
+    // Fetch potholes
+    let potholes = [];
+    try {
+      const res = await fetch('/api/potholes');
+      potholes = await res.json();
+    } catch(e) {}
+
+    // Draw route line
+    const routeLine = L.polyline([[slat, slng], [dlat, dlng]], {
+      color: '#1e3a5f', weight: 4, opacity: 0.8, dashArray: '8,5'
+    }).addTo(travelMap);
+    travelLayers.push(routeLine);
+
+    // Start/end markers
+    const startIcon = L.divIcon({ html: '<div style="background:#22c55e;width:14px;height:14px;border-radius:50%;border:2px solid white;"></div>', iconSize:[14,14], className:'' });
+    const endIcon   = L.divIcon({ html: '<div style="background:#ef4444;width:14px;height:14px;border-radius:50%;border:2px solid white;"></div>', iconSize:[14,14], className:'' });
+
+    const sm = L.marker([slat, slng], { icon: startIcon }).bindPopup('🟢 Start').addTo(travelMap);
+    const dm = L.marker([dlat, dlng], { icon: endIcon }).bindPopup('🔴 Destination').addTo(travelMap);
+    travelLayers.push(sm, dm);
+
+    // Fit map to route
+    travelMap.fitBounds([[slat, slng], [dlat, dlng]], { padding: [40, 40] });
+
+    // Find nearby potholes (within ~2km of the straight route)
+    const nearbyPotholes = potholes.filter(p => distPointToSegment(p.lat, p.lng, slat, slng, dlat, dlng) < 0.02);
+
+    // Plot all potholes (grey) and nearby (red)
+    potholes.forEach(p => {
+      const isNearby = nearbyPotholes.some(n => n.id === p.id);
+      const color = isNearby ? (p.severity === 'high' ? '#ef4444' : p.severity === 'medium' ? '#f59e0b' : '#84cc16') : '#94a3b8';
+      const circle = L.circleMarker([p.lat, p.lng], {
+        radius: isNearby ? 10 : 6,
+        fillColor: color,
+        color: '#fff',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.85
+      }).bindPopup(`<b>Pothole</b><br>Severity: ${p.severity}<br>${p.description || 'No description'}<br><small>${new Date(p.reportedAt).toLocaleDateString()}</small>`).addTo(travelMap);
+      travelLayers.push(circle);
+    });
+
+    // Show warning box
+    const warnDiv = document.getElementById('travel-warnings');
+    if (nearbyPotholes.length === 0) {
+      warnDiv.innerHTML = `<div class="status success" style="display:block;margin-top:14px;">✅ No potholes reported along your route. Safe travels!</div>`;
+    } else {
+      const items = nearbyPotholes.map(p =>
+        `<li><b>${p.severity.toUpperCase()}</b> — (${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}) ${p.description ? '— ' + p.description : ''}</li>`
+      ).join('');
+      warnDiv.innerHTML = `
+        <div class="warning-box">
+          <h4>⚠️ ${nearbyPotholes.length} pothole(s) detected near your route</h4>
+          <ul>${items}</ul>
+        </div>`;
+    }
+
+    showStatus('travel-status', `Route loaded. ${potholes.length} total potholes checked, ${nearbyPotholes.length} near your path.`, 'info');
+  }
+
+  // Distance from point (px,py) to segment (ax,ay)-(bx,by) in degrees
+  function distPointToSegment(px, py, ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay;
+    if (dx === 0 && dy === 0) return Math.hypot(px - ax, py - ay);
+    const t = Math.max(0, Math.min(1, ((px-ax)*dx + (py-ay)*dy) / (dx*dx + dy*dy)));
+    return Math.hypot(px - (ax + t*dx), py - (ay + t*dy));
+  }
+
+  // ── Database page ──────────────────────────────────────────
+  async function loadDatabase() {
+    const listEl = document.getElementById('db-list');
+    try {
+      const res = await fetch('/api/potholes');
+      allPotholes = await res.json();
+
+      document.getElementById('stat-total').textContent = allPotholes.length;
+      document.getElementById('stat-high').textContent = allPotholes.filter(p => p.severity === 'high').length;
+      const weekAgo = Date.now() - 7*24*60*60*1000;
+      document.getElementById('stat-recent').textContent = allPotholes.filter(p => new Date(p.reportedAt).getTime() > weekAgo).length;
+
+      if (allPotholes.length === 0) {
+        listEl.innerHTML = '<div class="empty-state">No potholes reported yet.</div>';
+        return;
+      }
+
+      listEl.innerHTML = [...allPotholes].reverse().map(p => `
+        <div class="pothole-item">
+          <div>
+            <div>
+              <b>📍 ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</b>
+              <span class="severity-badge severity-${p.severity}">${p.severity}</span>
+            </div>
+            <div class="meta">${p.description || 'No description'} &nbsp;·&nbsp; ${new Date(p.reportedAt).toLocaleString()}</div>
+          </div>
+          <button class="btn btn-danger" onclick="deletePothole(${p.id})">🗑</button>
+        </div>
+      `).join('');
+    } catch(e) {
+      listEl.innerHTML = '<div class="empty-state" style="color:#ef4444">Failed to load. Is the server running?</div>';
+    }
+  }
+
+  async function deletePothole(id) {
+    if (!confirm('Delete this pothole entry?')) return;
+    await fetch('/api/potholes/' + id, { method: 'DELETE' });
+    loadDatabase();
+  }
+
+  // ── Utility ────────────────────────────────────────────────
+  function showStatus(id, msg, type) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.className = 'status ' + type;
+  }
+
+  // Init report map on first load
+  window.addEventListener('load', () => { initReportMap(); });
+</script>
+</body>
+</html>
